@@ -1,0 +1,33 @@
+{
+  "name": "climate-impact-map",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build && cp dist/index.html dist/404.html",
+    "build:data": "python3 scripts/fetch_cil_data.py && python3 scripts/normalize.py && bash scripts/build_tiles.sh",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.2",
+    "hyparquet": "^1.26.2",
+    "maplibre-gl": "^5.24.0",
+    "pmtiles": "^4.4.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "tailwindcss": "^4.3.2",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "oxlint": "^1.71.0",
+    "topojson-client": "^3.1.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1"
+  }
+}
