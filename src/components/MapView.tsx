@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import maplibregl, { type Map, type MapGeoJSONFeature } from 'maplibre-gl'
-import { Protocol } from 'pmtiles'
 import type { Manifest } from '../lib/types'
 import { useMapStore } from '../store/mapStore'
 import { fetchValuesForFilters } from '../lib/dataClient'
 import { buildColorExpression, formatValue, getPalette } from '../lib/colors'
+import { ensureRegionsPmtiles, pmtilesProtocol, pmtilesSourceUrl } from '../lib/pmtilesMemory'
 
-const protocol = new Protocol()
-maplibregl.addProtocol('pmtiles', protocol.tile)
+maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile)
 
 interface MapViewProps {
   manifest: Manifest
@@ -19,6 +18,8 @@ export function MapView({ manifest }: MapViewProps) {
   const regionIdsRef = useRef<string[]>([])
   const filters = useMapStore((state) => state.filters)
   const addCompareRegion = useMapStore((state) => state.addCompareRegion)
+  const [geometryReady, setGeometryReady] = useState(false)
+  const [geometryError, setGeometryError] = useState<string | null>(null)
   const [hover, setHover] = useState<{
     regionId: string
     iso: string
@@ -32,7 +33,21 @@ export function MapView({ manifest }: MapViewProps) {
   const [range, setRange] = useState<{ min: number | null; max: number | null }>({ min: null, max: null })
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return
+    let cancelled = false
+    void ensureRegionsPmtiles()
+      .then(() => {
+        if (!cancelled) setGeometryReady(true)
+      })
+      .catch((error: Error) => {
+        if (!cancelled) setGeometryError(error.message)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!geometryReady || !containerRef.current || mapRef.current) return
 
     const map = new maplibregl.Map({
       container: containerRef.current,
@@ -41,7 +56,7 @@ export function MapView({ manifest }: MapViewProps) {
         sources: {
           regions: {
             type: 'vector',
-            url: `pmtiles://${window.location.origin}${import.meta.env.BASE_URL}data/regions.pmtiles`,
+            url: pmtilesSourceUrl(),
             promoteId: 'hierid',
           },
         },
@@ -115,7 +130,7 @@ export function MapView({ manifest }: MapViewProps) {
       map.remove()
       mapRef.current = null
     }
-  }, [addCompareRegion])
+  }, [addCompareRegion, geometryReady])
 
   useEffect(() => {
     const map = mapRef.current
@@ -163,9 +178,22 @@ export function MapView({ manifest }: MapViewProps) {
     }
   }, [filters, manifest])
 
+  if (geometryError) {
+    return (
+      <div className="flex h-[68vh] min-h-[420px] items-center justify-center rounded-2xl border border-red-200 bg-red-50 text-red-700">
+        Failed to load map geometry: {geometryError}
+      </div>
+    )
+  }
+
   return (
     <div className="relative h-[68vh] min-h-[420px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-inner">
       <div ref={containerRef} className="absolute inset-0" />
+      {!geometryReady && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-100/80 text-sm text-slate-600">
+          Loading map geometry…
+        </div>
+      )}
       {hover && (
         <div
           className="pointer-events-none absolute z-10 max-w-xs rounded-xl bg-white p-3 text-sm shadow-lg ring-1 ring-slate-200"
