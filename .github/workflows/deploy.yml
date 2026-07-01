@@ -20,6 +20,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -42,12 +49,6 @@ jobs:
           python3 scripts/normalize.py
           bash scripts/build_tiles.sh
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-
-      - run: npm ci
       - run: npm run build
 
       - uses: actions/upload-pages-artifact@v3
