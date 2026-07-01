@@ -67,7 +67,7 @@ export const DEFAULT_FILTERS: MapFilters = {
   period: '1986-2005',
   measure: 'absolute',
   quantile: '0.5',
-  unit: 'fahrenheit',
+  unit: 'celsius',
 }
 
 export const TEMP_METRICS = new Set<MetricId>(['tas-JJA', 'tas-DJF', 'tas-annual'])
