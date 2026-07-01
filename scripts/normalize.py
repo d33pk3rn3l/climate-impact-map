@@ -1,50 +1,34 @@
 #!/usr/bin/env python3
-"""Normalize downloaded CIL CSVs into compact runtime artifacts."""
+"""Normalize downloaded CIL temperature CSVs into compact per-combo binary tiles."""
 
 from __future__ import annotations
 
 import json
+import struct
 from pathlib import Path
 
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
 
 ROOT = Path(__file__).resolve().parent.parent
 RAW_DIR = ROOT / "data" / "raw"
 OUT_DIR = ROOT / "public" / "data"
-EXCEL_PATH = ROOT / "data" / "source" / "ClimateImpactLab_GlobalData_20March2023.xlsx"
+VALUES_DIR = OUT_DIR / "values"
 
-CLIMATE_METRICS = [
-    "tas-JJA",
-    "tas-DJF",
-    "tas-annual",
-    "tasmin-under-32F",
-    "tasmax-over-95F",
-]
-DAMAGE_METRICS = ["mortality", "energy"]
+CLIMATE_METRICS = ["tas-JJA", "tas-DJF", "tas-annual"]
 SSP_SCENARIOS = ["ssp245", "ssp370", "ssp585"]
-RCP_SCENARIOS = ["rcp45", "rcp85"]
 PERIODS = ["1986-2005", "2020-2039", "2040-2059", "2080-2099"]
-DAMAGE_PERIODS = ["2020-2039", "2040-2059", "2080-2099"]
 MEASURES = ["absolute", "change-from-hist"]
 
 METRIC_LABELS = {
     "tas-JJA": "Average Jun/Jul/Aug Temps",
     "tas-DJF": "Average Dec/Jan/Feb Temps",
     "tas-annual": "Average Annual Temps",
-    "tasmin-under-32F": "Days < 32°F / 0°C",
-    "tasmax-over-95F": "Days > 95°F / 35°C",
-    "mortality": "Mortality costs",
-    "energy": "Energy costs",
 }
 
 SCENARIO_LABELS = {
     "ssp245": "Moderate emissions (SSP2-4.5)",
     "ssp370": "Medium-High emissions (SSP3-7.0)",
     "ssp585": "High emissions (SSP5-8.5)",
-    "rcp45": "Moderate emissions (RCP 4.5)",
-    "rcp85": "High emissions (RCP 8.5)",
 }
 
 PERIOD_LABELS = {
@@ -59,115 +43,19 @@ MEASURE_LABELS = {
     "change-from-hist": "Change From Historical",
 }
 
-TEMP_METRICS = {"tas-JJA", "tas-DJF", "tas-annual"}
+
+def combo_key(metric: str, scenario: str, period: str, measure: str) -> str:
+    return f"{metric}|{scenario}|{period}|{measure}"
 
 
-def f_to_c(value: float) -> float:
-    return (value - 32.0) * 5.0 / 9.0
+def combo_filename(metric: str, scenario: str, period: str, measure: str) -> str:
+    return f"{metric}_{scenario}_{period}_{measure}.bin"
 
 
 def read_climate_csv(path: Path) -> pd.DataFrame:
     frame = pd.read_csv(path)
     frame = frame.rename(columns={"hierid": "region_id", "0.05": "q05", "0.5": "q50", "0.95": "q95"})
     return frame[["region_id", "q05", "q50", "q95"]]
-
-
-def read_damage_csv(path: Path) -> pd.DataFrame:
-    frame = pd.read_csv(path)
-    frame = frame.rename(columns={"hierid": "region_id", "0.5": "q50"})
-    frame["q05"] = frame["q50"]
-    frame["q95"] = frame["q50"]
-    return frame[["region_id", "q05", "q50", "q95"]]
-
-
-def add_celsius_columns(frame: pd.DataFrame, metric: str) -> pd.DataFrame:
-    if metric not in TEMP_METRICS:
-        return frame
-    for col in ("q05", "q50", "q95"):
-        frame[f"{col}_c"] = frame[col].map(f_to_c)
-    return frame
-
-
-def load_region_names(topo_path: Path) -> dict[str, dict[str, str]]:
-    topo = json.loads(topo_path.read_text())
-    geometries = topo["objects"]["new_shapefile"]["geometries"]
-    mapping: dict[str, dict[str, str]] = {}
-    for geometry in geometries:
-        props = geometry.get("properties", {})
-        hierid = props.get("hierid")
-        if not hierid:
-            continue
-        mapping[hierid] = {
-            "iso": props.get("ISO", ""),
-            "name": hierid,
-        }
-    return mapping
-
-
-def validate_excel_sample() -> dict:
-    if not EXCEL_PATH.exists():
-        return {"validated": False, "reason": "excel_missing"}
-    sample = pd.read_excel(EXCEL_PATH, sheet_name="tas_JJA_ssp2-45", skiprows=2, nrows=5)
-    return {
-        "validated": True,
-        "sample_rows": len(sample),
-        "columns": list(sample.columns)[:6],
-    }
-
-
-def build_values_table() -> pd.DataFrame:
-    rows: list[dict] = []
-
-    for metric in CLIMATE_METRICS:
-        for scenario in SSP_SCENARIOS:
-            for period in PERIODS:
-                for measure in MEASURES:
-                    path = RAW_DIR / "csv" / "climate" / metric / scenario / period / f"{measure}.csv"
-                    if not path.exists():
-                        raise FileNotFoundError(path)
-                    frame = read_climate_csv(path)
-                    frame = add_celsius_columns(frame, metric)
-                    for record in frame.to_dict("records"):
-                        row = {
-                            "region_id": record["region_id"],
-                            "metric": metric,
-                            "scenario": scenario,
-                            "period": period,
-                            "measure": measure,
-                            "q05": record["q05"],
-                            "q50": record["q50"],
-                            "q95": record["q95"],
-                        }
-                        if metric in TEMP_METRICS:
-                            row["q05_c"] = record["q05_c"]
-                            row["q50_c"] = record["q50_c"]
-                            row["q95_c"] = record["q95_c"]
-                        rows.append(row)
-
-    for metric in DAMAGE_METRICS:
-        for scenario in RCP_SCENARIOS:
-            for period in DAMAGE_PERIODS:
-                path = RAW_DIR / "csv" / "damages" / metric / scenario / period / ".csv"
-                path = RAW_DIR / "csv" / "damages" / metric / scenario / f"{period}.csv"
-                if not path.exists():
-                    raise FileNotFoundError(path)
-                frame = read_damage_csv(path)
-                for record in frame.to_dict("records"):
-                    rows.append(
-                        {
-                            "region_id": record["region_id"],
-                            "metric": metric,
-                            "scenario": scenario,
-                            "period": period,
-                            "measure": "change-from-hist",
-                            "q05": record["q05"],
-                            "q50": record["q50"],
-                            "q95": record["q95"],
-                        }
-                    )
-
-    return pd.DataFrame(rows)
-
 
 
 def load_palettes() -> dict:
@@ -183,44 +71,69 @@ def load_palettes() -> dict:
     return palettes
 
 
+def write_combo_bin(path: Path, region_ids: list[str], frame: pd.DataFrame) -> int:
+    lookup = frame.set_index("region_id")
+    values: list[float] = []
+    for region_id in region_ids:
+        if region_id not in lookup.index:
+            values.extend([float("nan"), float("nan"), float("nan")])
+            continue
+        row = lookup.loc[region_id]
+        values.extend([float(row["q05"]), float(row["q50"]), float(row["q95"])])
+
+    packed = struct.pack(f"<{len(values)}f", *values)
+    path.write_bytes(packed)
+    return len(packed)
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    values = build_values_table()
-    for column in ("region_id", "metric", "scenario", "period", "measure"):
-        values[column] = values[column].astype("category")
-    table = pa.Table.from_pandas(values, preserve_index=False)
-    pq.write_table(
-        table,
-        OUT_DIR / "values.parquet",
-        compression="zstd",
-        compression_level=15,
-        use_dictionary=True,
-    )
+    VALUES_DIR.mkdir(parents=True, exist_ok=True)
 
-    region_ids = sorted(values["region_id"].unique())
+    region_ids: list[str] = []
+    combos: dict[str, str] = {}
+    total_bytes = 0
+
+    for metric in CLIMATE_METRICS:
+        for scenario in SSP_SCENARIOS:
+            for period in PERIODS:
+                for measure in MEASURES:
+                    csv_path = RAW_DIR / "csv" / "climate" / metric / scenario / period / f"{measure}.csv"
+                    if not csv_path.exists():
+                        raise FileNotFoundError(csv_path)
+
+                    frame = read_climate_csv(csv_path)
+                    if not region_ids:
+                        region_ids = sorted(frame["region_id"].astype(str).unique())
+
+                    key = combo_key(metric, scenario, period, measure)
+                    rel_path = f"values/{combo_filename(metric, scenario, period, measure)}"
+                    out_path = OUT_DIR / rel_path
+                    total_bytes += write_combo_bin(out_path, region_ids, frame)
+                    combos[key] = rel_path
+
     (OUT_DIR / "regions.json").write_text(json.dumps(region_ids))
 
-    region_meta = load_region_names(RAW_DIR / "topo" / "global-regional.json")
     manifest = {
-        "version": 1,
+        "version": 2,
+        "format": "f32-q3",
+        "region_count": len(region_ids),
         "metrics": [
             {
                 "id": metric,
                 "label": METRIC_LABELS[metric],
-                "kind": "damage" if metric in DAMAGE_METRICS else "climate",
-                "scenarios": RCP_SCENARIOS if metric in DAMAGE_METRICS else SSP_SCENARIOS,
-                "periods": DAMAGE_PERIODS if metric in DAMAGE_METRICS else PERIODS,
-                "measures": ["change-from-hist"] if metric in DAMAGE_METRICS else MEASURES,
+                "kind": "climate",
+                "scenarios": SSP_SCENARIOS,
+                "periods": PERIODS,
+                "measures": MEASURES,
             }
-            for metric in CLIMATE_METRICS + DAMAGE_METRICS
+            for metric in CLIMATE_METRICS
         ],
         "scenario_labels": SCENARIO_LABELS,
         "period_labels": PERIOD_LABELS,
         "measure_labels": MEASURE_LABELS,
         "palettes": load_palettes(),
-        "region_count": len(region_ids),
-        "region_meta": region_meta,
-        "excel_validation": validate_excel_sample(),
+        "combos": combos,
         "attribution": {
             "source": "Climate Impact Lab",
             "license": "CC BY 4.0",
@@ -228,7 +141,15 @@ def main() -> None:
         },
     }
     (OUT_DIR / "manifest.json").write_text(json.dumps(manifest, indent=2))
-    print(f"Wrote values.parquet ({len(values):,} rows), regions.json, manifest.json")
+
+    legacy_parquet = OUT_DIR / "values.parquet"
+    if legacy_parquet.exists():
+        legacy_parquet.unlink()
+
+    print(
+        f"Wrote {len(combos)} combo bins ({total_bytes / 1024 / 1024:.1f} MB total), "
+        f"regions.json ({len(region_ids):,} regions), manifest.json"
+    )
 
 
 if __name__ == "__main__":

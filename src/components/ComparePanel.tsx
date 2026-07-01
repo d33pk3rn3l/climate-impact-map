@@ -55,7 +55,7 @@ export function ComparePanel({ manifest }: ComparePanelProps) {
                 <div key={point.period} className="flex justify-between gap-3">
                   <span>{manifest.period_labels[point.period as keyof typeof manifest.period_labels] ?? point.period}</span>
                   <span className="font-medium text-slate-800">
-                    {point.value == null ? '—' : formatValue(point.value, filters.unit, filters.metric)}
+                    {point.value == null ? '—' : formatValue(point.value, filters.unit)}
                   </span>
                 </div>
               ))}

@@ -1,6 +1,5 @@
 import { useMapStore } from '../store/mapStore'
 import type { Manifest, MetricId, MeasureId, PeriodId, QuantileId, ScenarioId } from '../lib/types'
-import { isDamageMetric } from '../lib/types'
 
 interface FilterBarProps {
   manifest: Manifest
@@ -42,24 +41,22 @@ export function FilterBar({ manifest }: FilterBarProps) {
         probability
       </p>
 
-      {!isDamageMetric(filters.metric) && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {(['absolute', 'change-from-hist'] as MeasureId[]).map((measure) => (
-            <button
-              key={measure}
-              type="button"
-              onClick={() => setFilters({ measure })}
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                filters.measure === measure
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              {manifest.measure_labels[measure]}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {(['absolute', 'change-from-hist'] as MeasureId[]).map((measure) => (
+          <button
+            key={measure}
+            type="button"
+            onClick={() => setFilters({ measure })}
+            className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+              filters.measure === measure
+                ? 'bg-orange-500 text-white'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            {manifest.measure_labels[measure]}
+          </button>
+        ))}
+      </div>
     </section>
   )
 }

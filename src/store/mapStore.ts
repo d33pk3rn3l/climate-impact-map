@@ -1,12 +1,6 @@
 import { create } from 'zustand'
 import type { CompareRegion, Manifest, MapFilters, RankCriteria } from '../lib/types'
-import {
-  DEFAULT_FILTERS,
-  defaultMeasureForMetric,
-  defaultPeriodForMetric,
-  defaultScenarioForMetric,
-  isDamageMetric,
-} from '../lib/types'
+import { DEFAULT_FILTERS } from '../lib/types'
 import { parseHashFilters, serializeHashFilters } from '../lib/colors'
 
 interface MapStore {
@@ -33,29 +27,14 @@ interface MapStore {
 }
 
 function mergeFilters(current: MapFilters, partial: Partial<MapFilters>): MapFilters {
-  const metric = partial.metric ?? current.metric
-  const next: MapFilters = {
-    metric,
-    scenario: partial.scenario ?? (partial.metric ? defaultScenarioForMetric(metric) : current.scenario),
-    period: partial.period ?? (partial.metric ? defaultPeriodForMetric(metric) : current.period),
-    measure: partial.measure ?? (partial.metric ? defaultMeasureForMetric(metric) : current.measure),
+  return {
+    metric: partial.metric ?? current.metric,
+    scenario: partial.scenario ?? current.scenario,
+    period: partial.period ?? current.period,
+    measure: partial.measure ?? current.measure,
     quantile: partial.quantile ?? current.quantile,
     unit: partial.unit ?? current.unit,
   }
-
-  if (isDamageMetric(next.metric)) {
-    next.measure = 'change-from-hist'
-    if (!['rcp45', 'rcp85'].includes(next.scenario)) next.scenario = 'rcp45'
-    if (next.period === '1986-2005') next.period = '2020-2039'
-  } else if (!['ssp245', 'ssp370', 'ssp585'].includes(next.scenario)) {
-    next.scenario = 'ssp245'
-  }
-
-  if (next.measure === 'absolute' && next.period === '1986-2005' && partial.measure !== 'change-from-hist') {
-    // keep historical absolute
-  }
-
-  return next
 }
 
 export const useMapStore = create<MapStore>((set, get) => ({

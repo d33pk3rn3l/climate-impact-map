@@ -70,7 +70,7 @@ export function RankPanel({ manifest: _manifest }: RankPanelProps) {
               <span>
                 {index + 1}. {item.regionId}
               </span>
-              <span className="font-medium">{formatValue(item.value, filters.unit, filters.metric)}</span>
+              <span className="font-medium">{formatValue(item.value, filters.unit)}</span>
             </li>
           ))}
         </ol>

@@ -1,15 +1,14 @@
 # climate-impact-map
 
-Fast, global climate impact visualizer built for GitHub Pages.
+Fast, global temperature map for exploring where to live under future climate scenarios.
 
 ## Features
 
-- Global impact-region map (~24,000 regions) with instant filter updates
-- Climate metrics: seasonal/annual temperatures and extreme day counts
-- Damage metrics: mortality and energy costs
-- Absolute and change-from-historical views
+- Global impact-region map (~24,000 regions) with lazy-loaded data tiles
+- Temperature metrics: summer (JJA), winter (DJF), and annual averages
+- Absolute and change-from-historical views across SSP scenarios
 - Fahrenheit/Celsius toggle, shareable URLs, CSV export
-- Compare up to 3 regions and rank locations by threshold
+- Compare up to 3 regions and rank locations by temperature threshold
 
 ## Local development
 
@@ -27,4 +26,4 @@ Pushes to `main` build data artifacts, compile the app, and deploy to GitHub Pag
 
 ## Data
 
-Climate and damage data are derived from the [Climate Impact Lab Impact Map](https://impactlab.org/map/) (CC BY 4.0). The build pipeline downloads public CIL datasets during CI and compacts them into `values.parquet` and `regions.pmtiles`.
+Temperature data is derived from the [Climate Impact Lab Impact Map](https://impactlab.org/map/) (CC BY 4.0). The build pipeline downloads public CIL datasets during CI and compacts them into per-filter binary tiles (~286 KB each) plus `regions.pmtiles` for geometry.

@@ -1,16 +1,8 @@
 import type { ExpressionSpecification } from 'maplibre-gl'
-import type { Manifest, MapFilters, PaletteConfig, QuantileId, UnitId } from './types'
-import { TEMP_METRICS, paletteKey } from './types'
+import type { Manifest, MapFilters, PaletteConfig } from './types'
+import { paletteKey } from './types'
 
 export const DATA_BASE = `${import.meta.env.BASE_URL}data`
-
-export function quantileColumn(quantile: QuantileId, unit: UnitId, metric: string) {
-  const base = quantile === '0.05' ? 'q05' : quantile === '0.95' ? 'q95' : 'q50'
-  if (unit === 'celsius' && TEMP_METRICS.has(metric as never)) {
-    return `${base}_c`
-  }
-  return base
-}
 
 export function getPalette(manifest: Manifest, filters: MapFilters): PaletteConfig {
   const key = paletteKey(filters.metric, filters.measure)
@@ -37,15 +29,9 @@ export function buildColorExpression(
   return ['interpolate', ['linear'], ['coalesce', ['feature-state', property], bins[0] ?? 0], ...stops]
 }
 
-export function formatValue(value: number | null | undefined, unit: UnitId, metric: string) {
+export function formatValue(value: number | null | undefined, unit: 'fahrenheit' | 'celsius') {
   if (value == null || Number.isNaN(value)) return '—'
-  if (TEMP_METRICS.has(metric as never)) {
-    return `${value.toFixed(1)}°${unit === 'celsius' ? 'C' : 'F'}`
-  }
-  if (metric === 'tasmin-under-32F' || metric === 'tasmax-over-95F') {
-    return `${value.toFixed(0)} days`
-  }
-  return `${value.toFixed(2)}% GDP`
+  return `${value.toFixed(1)}°${unit === 'celsius' ? 'C' : 'F'}`
 }
 
 export function parseHashFilters(hash: string): Partial<MapFilters> {

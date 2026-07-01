@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download CIL global impact-region data, geometries, and color palettes."""
+"""Download CIL global temperature data, geometries, and color palettes."""
 
 from __future__ import annotations
 
@@ -26,28 +26,15 @@ SESSION.headers.update(
     }
 )
 
-CLIMATE_METRICS = [
-    "tas-JJA",
-    "tas-DJF",
-    "tas-annual",
-    "tasmin-under-32F",
-    "tasmax-over-95F",
-]
-DAMAGE_METRICS = ["mortality", "energy"]
+CLIMATE_METRICS = ["tas-JJA", "tas-DJF", "tas-annual"]
 SSP_SCENARIOS = ["ssp245", "ssp370", "ssp585"]
-RCP_SCENARIOS = ["rcp45", "rcp85"]
 PERIODS = ["1986-2005", "2020-2039", "2040-2059", "2080-2099"]
-DAMAGE_PERIODS = ["2020-2039", "2040-2059", "2080-2099"]
 MEASURES = ["absolute", "change-from-hist"]
 
 UNIT_SUFFIX = {
     "tas-JJA": "degF",
     "tas-DJF": "degF",
     "tas-annual": "degF",
-    "tasmin-under-32F": "days-under-32F",
-    "tasmax-over-95F": "days-over-95F",
-    "mortality": "percent",
-    "energy": "percent",
 }
 
 VENDORED_ASSETS = {
@@ -64,11 +51,6 @@ def climate_csv_url(metric: str, scenario: str, period: str, measure: str) -> st
     filename = (
         f"global_hierid_{metric}_{scenario}_{period}_{measure}_{unit}_percentiles.csv"
     )
-    return urljoin(BASE, f"global_data/v1.3/{filename}")
-
-
-def damage_csv_url(metric: str, scenario: str, period: str) -> str:
-    filename = f"global_hierid_{metric}_{scenario}_{period}_change-from-hist_percent.csv"
     return urljoin(BASE, f"global_data/v1.3/{filename}")
 
 
@@ -95,17 +77,6 @@ def all_urls() -> list[tuple[str, str]]:
                     urls.append((climate_csv_url(metric, scenario, period, measure), rel))
                     palette_rel = f"palettes/{metric}_{measure}.json"
                     urls.append((palette_url(metric, measure), palette_rel))
-
-    for metric in DAMAGE_METRICS:
-        for scenario in RCP_SCENARIOS:
-            for period in DAMAGE_PERIODS:
-                rel = f"csv/damages/{metric}/{scenario}/{period}.csv"
-                urls.append((damage_csv_url(metric, scenario, period), rel))
-
-    for metric in DAMAGE_METRICS:
-        urls.append(
-            (palette_url(metric, "change-from-hist"), f"palettes/{metric}_change-from-hist.json")
-        )
 
     seen: set[str] = set()
     deduped: list[tuple[str, str]] = []

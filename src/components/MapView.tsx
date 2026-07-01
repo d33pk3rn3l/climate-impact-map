@@ -5,7 +5,6 @@ import type { Manifest } from '../lib/types'
 import { useMapStore } from '../store/mapStore'
 import { fetchValuesForFilters } from '../lib/dataClient'
 import { buildColorExpression, formatValue, getPalette } from '../lib/colors'
-import { TEMP_METRICS } from '../lib/types'
 
 const protocol = new Protocol()
 maplibregl.addProtocol('pmtiles', protocol.tile)
@@ -86,7 +85,7 @@ export function MapView({ manifest }: MapViewProps) {
       const values = (feature.state ?? {}) as Record<string, number>
       setHover({
         regionId,
-        iso: String(feature.properties?.ISO ?? manifest.region_meta[regionId]?.iso ?? ''),
+        iso: String(feature.properties?.ISO ?? ''),
         value: values.value ?? Number.NaN,
         q05: values.q05 ?? Number.NaN,
         q50: values.q50 ?? Number.NaN,
@@ -108,7 +107,7 @@ export function MapView({ manifest }: MapViewProps) {
       const regionId = String(feature.id)
       addCompareRegion({
         regionId,
-        label: manifest.region_meta[regionId]?.name ?? regionId,
+        label: regionId,
       })
     })
 
@@ -116,7 +115,7 @@ export function MapView({ manifest }: MapViewProps) {
       map.remove()
       mapRef.current = null
     }
-  }, [addCompareRegion, manifest.region_meta])
+  }, [addCompareRegion])
 
   useEffect(() => {
     const map = mapRef.current
@@ -164,8 +163,6 @@ export function MapView({ manifest }: MapViewProps) {
     }
   }, [filters, manifest])
 
-  const showCelsius = TEMP_METRICS.has(filters.metric)
-
   return (
     <div className="relative h-[68vh] min-h-[420px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-inner">
       <div ref={containerRef} className="absolute inset-0" />
@@ -177,17 +174,11 @@ export function MapView({ manifest }: MapViewProps) {
           <div className="font-semibold text-slate-900">{hover.regionId}</div>
           <div className="text-slate-500">{hover.iso}</div>
           <div className="mt-2 font-medium text-orange-600">
-            {formatValue(hover.value, filters.unit, filters.metric)}
+            {formatValue(hover.value, filters.unit)}
           </div>
           <div className="mt-1 text-xs text-slate-500">
-            Range: {formatValue(hover.q05, filters.unit, filters.metric)} –{' '}
-            {formatValue(hover.q95, filters.unit, filters.metric)}
+            Range: {formatValue(hover.q05, filters.unit)} – {formatValue(hover.q95, filters.unit)}
           </div>
-        </div>
-      )}
-      {!showCelsius && (
-        <div className="absolute right-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs text-slate-600 shadow">
-          Damage metrics shown in % GDP
         </div>
       )}
       <div className="sr-only" aria-live="polite">
