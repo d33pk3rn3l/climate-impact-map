@@ -18,8 +18,8 @@ export function Legend({ manifest, min, max }: LegendProps) {
       <h2 className="text-sm font-semibold text-slate-800">Scale</h2>
       <div className="mt-3 h-48 w-8 rounded-full" style={{ background: `linear-gradient(to top, ${palette.color_palette.join(',')})` }} />
       <div className="mt-2 flex h-48 flex-col justify-between text-xs text-slate-600">
-        <span>{max != null ? formatValue(max, filters.unit, filters.metric) : '—'}</span>
-        <span>{min != null ? formatValue(min, filters.unit, filters.metric) : '—'}</span>
+        <span>{max != null ? formatValue(max, filters.unit) : '—'}</span>
+        <span>{min != null ? formatValue(min, filters.unit) : '—'}</span>
       </div>
     </aside>
   )

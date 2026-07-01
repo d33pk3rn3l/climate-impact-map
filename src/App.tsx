@@ -50,7 +50,7 @@ function App() {
   const onDownload = async () => {
     if (!manifest) return
     const { values, regionIds } = await fetchValuesForFilters(filters)
-    exportCurrentView(manifest, regionIds, values, filters)
+    exportCurrentView(regionIds, values, filters)
   }
 
   const onShare = () => {

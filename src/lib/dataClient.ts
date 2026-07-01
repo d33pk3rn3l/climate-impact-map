@@ -69,18 +69,16 @@ export async function compareRegions(regionIds: string[], filters: MapFilters) {
 }
 
 export function exportCurrentView(
-  manifest: Manifest,
   regionIds: string[],
   values: Float32Array,
   filters: MapFilters,
 ) {
-  const lines = ['region_id,iso,value,q05,q50,q95']
+  const lines = ['region_id,value']
   for (let i = 0; i < regionIds.length; i += 1) {
     const regionId = regionIds[i]
-    const meta = manifest.region_meta[regionId]
     const value = values[i]
     if (Number.isNaN(value)) continue
-    lines.push(`${regionId},${meta?.iso ?? ''},${value},,,`)
+    lines.push(`${regionId},${value}`)
   }
 
   const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
