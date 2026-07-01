@@ -1,5 +1,5 @@
 import type { ExpressionSpecification } from 'maplibre-gl'
-import type { Manifest, MapFilters, PaletteConfig } from './types'
+import type { Manifest, MapFilters, PaletteConfig, UnitId } from './types'
 import { paletteKey } from './types'
 
 export const DATA_BASE = `${import.meta.env.BASE_URL}data`
@@ -7,14 +7,21 @@ export const DATA_BASE = `${import.meta.env.BASE_URL}data`
 export function getPalette(manifest: Manifest, filters: MapFilters): PaletteConfig {
   const key = paletteKey(filters.metric, filters.measure)
   const palette = manifest.palettes[key]
-  if (!palette) {
-    return { bins: [-10, 0, 10, 20, 30, 40, 50], color_palette: ['#2c7bb6', '#abd9e9', '#ffffbf', '#fdae61', '#d7191c'] }
+  const fallback = {
+    bins: [-10, 0, 10, 20, 30, 40, 50],
+    color_palette: ['#2c7bb6', '#abd9e9', '#ffffbf', '#fdae61', '#d7191c'],
   }
-  return palette
+  const resolved = palette ?? fallback
+  if (filters.unit !== 'celsius') return resolved
+  return {
+    ...resolved,
+    bins: resolved.bins.map((bin) => ((bin - 32) * 5) / 9),
+  }
 }
 
 export function buildColorExpression(
   palette: PaletteConfig,
+  _unit: UnitId = 'fahrenheit',
   property: string = 'value',
 ): ExpressionSpecification {
   const stops: (string | number)[] = []

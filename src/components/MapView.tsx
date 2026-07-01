@@ -15,10 +15,10 @@ interface MapViewProps {
 export function MapView({ manifest }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<Map | null>(null)
-  const regionIdsRef = useRef<string[]>([])
   const filters = useMapStore((state) => state.filters)
   const addCompareRegion = useMapStore((state) => state.addCompareRegion)
   const [geometryReady, setGeometryReady] = useState(false)
+  const [mapReady, setMapReady] = useState(false)
   const [geometryError, setGeometryError] = useState<string | null>(null)
   const [hover, setHover] = useState<{
     regionId: string
@@ -47,10 +47,13 @@ export function MapView({ manifest }: MapViewProps) {
   }, [])
 
   useEffect(() => {
-    if (!geometryReady || !containerRef.current || mapRef.current) return
+    if (!geometryReady || !containerRef.current) return
+
+    let disposed = false
+    const container = containerRef.current
 
     const map = new maplibregl.Map({
-      container: containerRef.current,
+      container,
       style: {
         version: 8,
         sources: {
@@ -67,8 +70,8 @@ export function MapView({ manifest }: MapViewProps) {
             source: 'regions',
             'source-layer': 'regions',
             paint: {
-              'fill-color': '#cbd5e1',
-              'fill-opacity': 0.85,
+              'fill-color': '#94a3b8',
+              'fill-opacity': 0.9,
             },
           },
           {
@@ -92,6 +95,24 @@ export function MapView({ manifest }: MapViewProps) {
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-left')
     mapRef.current = map
 
+    const resize = () => {
+      if (!disposed) map.resize()
+    }
+
+    const onLoad = () => {
+      resize()
+      if (!disposed) setMapReady(true)
+    }
+
+    map.on('load', onLoad)
+    map.on('error', (event) => {
+      console.error('MapLibre error:', event.error)
+    })
+
+    const resizeObserver = new ResizeObserver(() => resize())
+    resizeObserver.observe(container)
+    window.addEventListener('resize', resize)
+
     map.on('mousemove', 'regions-fill', (event) => {
       const feature = event.features?.[0] as MapGeoJSONFeature | undefined
       if (!feature?.id) return
@@ -111,7 +132,6 @@ export function MapView({ manifest }: MapViewProps) {
     })
 
     map.on('mouseleave', 'regions-fill', () => {
-      if (!mapRef.current) return
       map.getCanvas().style.cursor = ''
       setHover(null)
     })
@@ -119,29 +139,31 @@ export function MapView({ manifest }: MapViewProps) {
     map.on('click', 'regions-fill', (event) => {
       const feature = event.features?.[0]
       if (!feature?.id) return
-      const regionId = String(feature.id)
       addCompareRegion({
-        regionId,
-        label: regionId,
+        regionId: String(feature.id),
+        label: String(feature.id),
       })
     })
 
     return () => {
+      disposed = true
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', resize)
       map.remove()
       mapRef.current = null
+      setMapReady(false)
     }
   }, [addCompareRegion, geometryReady])
 
   useEffect(() => {
     const map = mapRef.current
-    if (!map) return
+    if (!map || !mapReady) return
 
     let cancelled = false
 
     const applyValues = async () => {
       const { values, q05, q50, q95, regionIds } = await fetchValuesForFilters(filters)
       if (cancelled || !mapRef.current) return
-      regionIdsRef.current = regionIds
 
       let min = Number.POSITIVE_INFINITY
       let max = Number.NEGATIVE_INFINITY
@@ -158,25 +180,19 @@ export function MapView({ manifest }: MapViewProps) {
       }
 
       const palette = getPalette(manifest, filters)
-      map.setPaintProperty('regions-fill', 'fill-color', buildColorExpression(palette))
+      map.setPaintProperty('regions-fill', 'fill-color', buildColorExpression(palette, filters.unit))
       setRange({
         min: Number.isFinite(min) ? min : null,
         max: Number.isFinite(max) ? max : null,
       })
     }
 
-    if (map.isStyleLoaded()) {
-      void applyValues()
-    } else {
-      map.once('load', () => {
-        void applyValues()
-      })
-    }
+    void applyValues()
 
     return () => {
       cancelled = true
     }
-  }, [filters, manifest])
+  }, [filters, manifest, mapReady])
 
   if (geometryError) {
     return (
